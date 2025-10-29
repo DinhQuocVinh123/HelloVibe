@@ -1,0 +1,15 @@
+.box {
+    height: 120px;
+    width: 100%;
+    border-radius: 8px;
+    transition: background-color 160ms ease-in-out, border-color 160ms ease-in-out;
+    border: 1px solid transparent;
+}
+.box--primary {
+    background-color: #1589ee; /* SLDS brand blue tone */
+    border-color: #0b5cab;
+}
+.box--secondary {
+    background-color: #2e844a; /* SLDS success green tone */
+    border-color: #194e31;
+}

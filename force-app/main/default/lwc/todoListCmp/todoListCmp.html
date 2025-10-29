@@ -1,0 +1,76 @@
+<template>
+    <lightning-card title="Todo List" icon-name="standard:task">
+        <!-- Add Todo Section -->
+        <div class="slds-m-around_medium">
+            <div class="slds-grid slds-gutters_small slds-wrap">
+                <div class="slds-col slds-size_12-of-12 slds-medium-size_6-of-12">
+                    <lightning-input 
+                        label="Name" 
+                        value={newName} 
+                        onchange={handleNameChange}
+                        placeholder="Enter todo name">
+                    </lightning-input>
+                </div>
+                <div class="slds-col slds-size_12-of-12 slds-medium-size_6-of-12">
+                    <lightning-input 
+                        label="Description" 
+                        value={newDescription} 
+                        onchange={handleDescriptionChange}
+                        placeholder="Enter description">
+                    </lightning-input>
+                </div>
+                <div class="slds-col slds-size_12-of-12 slds-m-top_small">
+                    <lightning-button 
+                        label="Add" 
+                        variant="brand" 
+                        onclick={handleAddTodo}>
+                    </lightning-button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Todo List Section -->
+        <div class="slds-m-around_medium">
+            <template if:true={todos.length}>
+                <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                    <thead>
+                        <tr class="slds-line-height_reset">
+                            <th class="slds-text-title_caps" scope="col">Name</th>
+                            <th class="slds-text-title_caps" scope="col">Description</th>
+                            <th class="slds-text-title_caps" scope="col">Completed</th>
+                            <th class="slds-text-title_caps" scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={todos} for:item="todo">
+                            <tr key={todo.Id} class="slds-hint-parent">
+                                <td>{todo.Name}</td>
+                                <td>{todo.Description__c}</td>
+                                <td>
+                                    <lightning-input 
+                                        type="checkbox" 
+                                        checked={todo.Completed__c}
+                                        data-id={todo.Id}
+                                        onchange={handleToggleComplete}>
+                                    </lightning-input>
+                                </td>
+                                <td>
+                                    <lightning-button 
+                                        label="Delete" 
+                                        variant="destructive" 
+                                        size="small"
+                                        data-id={todo.Id}
+                                        onclick={handleDeleteTodo}>
+                                    </lightning-button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+            <template if:false={todos.length}>
+                <p class="slds-text-align_center slds-m-around_medium">No todos found.</p>
+            </template>
+        </div>
+    </lightning-card>
+</template>
