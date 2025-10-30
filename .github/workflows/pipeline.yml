@@ -31,16 +31,11 @@ jobs:
         ./sfdx/bin/sfdx plugins:install @salesforce/plugin-source
         ./sfdx/bin/sfdx plugins:install @salesforce/plugin-apex
 
-    - name: Create Scratch Org
-      id: create_scratch_org
+    - name: Authenticate to Salesforce Dev Org
       run: |
-        echo "Creating scratch org..."
-        startTime=$(date +%s)
-        ./sfdx/bin/sfdx force:org:create -f config/project-scratch-def.json -a hellovibe-scratch-org -d 1 --set-default
-        endTime=$(date +%s)
-        duration=$((endTime - startTime))
-        echo "Scratch org created in $duration seconds"
-        echo "scratch_org_creation_time=$duration" >> $GITHUB_ENV
+        echo "Authenticating to Dev Org..."
+        ./sfdx/bin/sfdx force:config:set defaultusername=binkkboi737@agentforce.com
+        ./sfdx/bin/sfdx force:org:display --targetusername binkkboi737@agentforce.com
 
     - name: Get Current Commit Hash
       id: get_commit
@@ -49,12 +44,12 @@ jobs:
         echo "commit_hash=$COMMIT_HASH" >> $GITHUB_ENV
         echo "Current commit: $COMMIT_HASH"
 
-    - name: Deploy Source to Scratch Org
+    - name: Deploy Source to Dev Org
       id: deploy_source
       run: |
-        echo "Deploying source to scratch org..."
+        echo "Deploying source to Dev Org..."
         startTime=$(date +%s)
-        ./sfdx/bin/sfdx force:source:deploy -p force-app --targetusername hellovibe-scratch-org
+        ./sfdx/bin/sfdx force:source:deploy -p force-app --targetusername binkkboi737@agentforce.com
         endTime=$(date +%s)
         duration=$((endTime - startTime))
         echo "Source deployed in $duration seconds"
@@ -65,30 +60,21 @@ jobs:
       run: |
         echo "Running Apex tests with coverage requirement..."
         startTime=$(date +%s)
-        # Run all tests and capture results
-        ./sfdx/bin/sfdx force:apex:test:run --targetusername hellovibe-scratch-org --wait 10 --resultformat json > test-result.json
+        ./sfdx/bin/sfdx force:apex:test:run --targetusername binkkboi737@agentforce.com --wait 10 --resultformat json > test-result.json
         
-        # Extract coverage information using grep and sed (more compatible)
         coverage=$(grep -o '"coveragePercentage":[0-9]*\.[0-9]*' test-result.json | sed 's/"coveragePercentage":"//; s/"//')
-        if [ -z "$coverage" ]; then
-          coverage="0"
-        fi
+        if [ -z "$coverage" ]; then coverage="0"; fi
         echo "Coverage: ${coverage}%"
-        
-        # Check if coverage is at least 85%
+
         if (( $(echo "$coverage >= 85" | bc -l) )); then
-          echo "Coverage is sufficient: ${coverage}%"
-          echo "test_coverage=$coverage" >> $GITHUB_ENV
+          echo "✅ Coverage is sufficient: ${coverage}%"
         else
-          echo "Coverage is insufficient: ${coverage}%, minimum required is 85%"
+          echo "❌ Coverage is insufficient: ${coverage}%, minimum required is 85%"
           exit 1
         fi
-        
-        # Extract test results for logging
+
         passed=$(grep -o '"passed":[0-9]*' test-result.json | sed 's/"passed"://')
         failed=$(grep -o '"failed":[0-9]*' test-result.json | sed 's/"failed"://')
-        if [ -z "$passed" ]; then passed="0"; fi
-        if [ -z "$failed" ]; then failed="0"; fi
         echo "Tests Passed: $passed"
         echo "Tests Failed: $failed"
         
@@ -97,52 +83,23 @@ jobs:
         echo "Tests completed in $duration seconds"
         echo "test_execution_time=$duration" >> $GITHUB_ENV
 
-    - name: Validate Deployment
-      id: validate_deployment
-      run: |
-        echo "Validating deployment..."
-        startTime=$(date +%s)
-        # Run a simple validation to ensure everything works
-        ./sfdx/bin/sfdx force:apex:test:run --targetusername hellovibe-scratch-org --wait 10 --resultformat json > validation-test-result.json
-        endTime=$(date +%s)
-        duration=$((endTime - startTime))
-        echo "Validation completed in $duration seconds"
-        echo "validation_time=$duration" >> $GITHUB_ENV
-
     - name: Store Current State for Potential Rollback
-      id: store_state
       if: always()
       run: |
         echo "Storing current state for potential rollback..."
-        # Create a backup of current deployment state
         echo "Current commit hash: ${{ env.commit_hash }}"
-        echo "State stored for potential rollback"
 
     - name: Rollback on Deployment Failure
       if: failure()
       run: |
         echo "Deployment failed, initiating rollback procedure..."
-        echo "Rollback to previous version would be triggered here"
-        echo "In a real implementation, this would restore from backup or revert to previous commit"
-        # In practice, you would implement a rollback mechanism here
-        # This could involve:
-        # 1. Restoring from a backup
-        # 2. Reverting to a previous commit
-        # 3. Deploying a known good version
-        echo "Rollback procedure completed"
-        
+        echo "In real project, this would revert to the previous commit."
+        git revert ${{ env.commit_hash }} --no-edit || true
+        git push || true
+
     - name: Log Execution Times
       run: |
         echo "=== Pipeline Execution Summary ==="
-        echo "Scratch Org Creation: ${{ env.scratch_org_creation_time }} seconds"
         echo "Source Deployment: ${{ env.source_deploy_time }} seconds"
         echo "Test Execution: ${{ env.test_execution_time }} seconds"
-        echo "Validation: ${{ env.validation_time }} seconds"
-        echo "Total Pipeline Duration: $(( ${{ env.scratch_org_creation_time }} + ${{ env.source_deploy_time }} + ${{ env.test_execution_time }} + ${{ env.validation_time }} )) seconds"
         echo "Commit Hash: ${{ env.commit_hash }}"
-        
-    - name: Cleanup Scratch Org
-      if: always()
-      run: |
-        echo "Cleaning up scratch org..."
-        ./sfdx/bin/sfdx force:org:delete -u hellovibe-scratch-org -p
