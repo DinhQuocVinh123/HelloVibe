@@ -5,7 +5,7 @@ public with sharing class TodoController {
             //I simply just add a new comment
             //I put another comment
             // Simple query for all Todo__c records
-            List<Todo__c> records = [SELECT Id, Name, Description__c, Completed__c, CreatedDate, LastModifiedDate, OwnerId FROM Todo__c ORDER BY CreatedDate DESC];
+            List<Todo__c> records = [SELECT Id, Name, Description__c, Completed__c, CreatedDate, LastModifiedDate, OwnerId FROM Todo__c ORDER BY CreatedDate DESC]
             return records;
         } catch (Exception e) {
             throw new AuraHandledException('Failed to get todos: ' + e.getMessage());

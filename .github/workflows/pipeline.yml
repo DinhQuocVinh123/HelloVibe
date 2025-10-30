@@ -11,34 +11,40 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    # 1️⃣ Checkout code
     - name: Checkout Code
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
+    # 2️⃣ Setup Node.js
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
+    # 3️⃣ Install Salesforce CLI
     - name: Install Salesforce CLI
       run: |
         curl https://developer.salesforce.com/media/salesforce-cli/sfdx/channels/stable/sfdx-linux-x64.tar.xz | tar xJf -
-        ./sfdx/bin/sfdx --version
+        ./sfdx/bin/sf --version
 
-    - name: Install Salesforce CLI Plugins (npm method)
-      run: |
-        echo "Installing Salesforce CLI Plugins via npm..."
-        npm install -g @salesforce/plugin-source @salesforce/plugin-apex
-        ./sfdx/bin/sfdx plugins --core
-
+    # 4️⃣ Authenticate to Dev Org
     - name: Authenticate to Salesforce Dev Org using SFDX URL
       run: |
-        echo "Authenticating to Dev Org using SFDX AUTH URL..."
         echo "${{ secrets.SFDX_AUTH_URL }}" > sfdx_auth.txt
-        ./sfdx/bin/sfdx auth:sfdxurl:store -f sfdx_auth.txt --set-default --alias hellovibe-dev
-        ./sfdx/bin/sfdx org display --target-org hellovibe-dev
+        ./sfdx/bin/sf org login sfdx-url -f sfdx_auth.txt --set-default --alias hellovibe-dev
+        ./sfdx/bin/sf org display --target-org hellovibe-dev
 
+    # 5️⃣ Backup current metadata (for rollback)
+    - name: Backup Current Org Metadata
+      run: |
+        echo "Backing up current metadata before deploy..."
+        mkdir -p backups/previous
+        ./sfdx/bin/sf project retrieve start --manifest manifest/package.xml --target-org hellovibe-dev --output-dir backups/previous
+        echo "✅ Backup completed"
+
+    # 6️⃣ Get current commit
     - name: Get Current Commit Hash
       id: get_commit
       run: |
@@ -46,68 +52,49 @@ jobs:
         echo "commit_hash=$COMMIT_HASH" >> $GITHUB_ENV
         echo "Current commit: $COMMIT_HASH"
 
-
-    - name: Backup current metadata before deploy
-      run: |
-        echo "Backing up current metadata..."
-        mkdir -p backups/previous
-        ./sfdx/bin/sf project retrieve start --target-org hellovibe-dev --manifest manifest/package.xml --output-dir backups/previous --wait 10
-
+    # 7️⃣ Deploy source
     - name: Deploy Source to Dev Org
       id: deploy_source
       run: |
         echo "Deploying source to Dev Org..."
         startTime=$(date +%s)
-        ./sfdx/bin/sfdx force:source:deploy -p force-app --targetusername binkkboi737@agentforce.com
+        ./sfdx/bin/sf project deploy start --source-dir force-app --target-org hellovibe-dev --ignore-conflicts --wait 10
         endTime=$(date +%s)
         duration=$((endTime - startTime))
         echo "Source deployed in $duration seconds"
         echo "source_deploy_time=$duration" >> $GITHUB_ENV
 
-    # - name: Run Apex Tests with Coverage
-    #   id: run_tests
-    #   run: |
-    #     echo "Running Apex tests with coverage requirement..."
-    #     startTime=$(date +%s)
-    #     ./sfdx/bin/sf apex run test -o binkkboi737@agentforce.com --wait 10 --result-format json > test-result.json
-    #     coverage=$(grep -o '"coveragePercentage":[0-9]*\.[0-9]*' test-result.json | sed 's/"coveragePercentage"://')
-    #     if [ -z "$coverage" ]; then coverage="0"; fi
-    #     echo "Coverage: ${coverage}%"
-    #     if (( $(echo "$coverage >= 85" | bc -l) )); then
-    #       echo " Coverage is sufficient: ${coverage}%"
-    #     else
-    #       echo " Coverage is insufficient: ${coverage}%, minimum required is 85%"
-    #       exit 1
-    #     fi
-    #     passed=$(grep -o '"passed":[0-9]*' test-result.json | sed 's/"passed"://')
-    #     failed=$(grep -o '"failed":[0-9]*' test-result.json | sed 's/"failed"://')
-    #     echo "Tests Passed: $passed"
-    #     echo "Tests Failed: $failed"
-    #     endTime=$(date +%s)
-    #     duration=$((endTime - startTime))
-    #     echo "Tests completed in $duration seconds"
-    #     echo "test_execution_time=$duration" >> $GITHUB_ENV
-
-    - name: Store Current State for Potential Rollback
-      if: always()
+    # 8️⃣ Run Apex Tests
+    - name: Run Apex Tests with Coverage
+      id: run_tests
       run: |
-        echo "Storing current state for potential rollback..."
-        echo "Current commit hash: ${{ env.commit_hash }}"
+        echo "Running Apex tests with coverage requirement..."
+        startTime=$(date +%s)
+        ./sfdx/bin/sf apex run test -o hellovibe-dev --wait 10 --result-format json > test-result.json
+        coverage=$(grep -o '"coveragePercentage":[0-9]*\.[0-9]*' test-result.json | sed 's/"coveragePercentage"://')
+        if [ -z "$coverage" ]; then coverage="0"; fi
+        echo "Coverage: ${coverage}%"
+        if (( $(echo "$coverage < 85" | bc -l) )); then
+          echo "❌ Coverage too low!"
+          exit 1
+        fi
+        endTime=$(date +%s)
+        duration=$((endTime - startTime))
+        echo "Tests completed in $duration seconds"
+        echo "test_execution_time=$duration" >> $GITHUB_ENV
 
+    # 9️⃣ Rollback if deploy/test failed
     - name: Rollback on Deployment Failure
       if: failure()
       run: |
-        echo "❌ Deployment failed. Starting rollback..."
-        # 1️⃣ Revert GitHub code
+        echo "Deployment failed — initiating rollback..."
         git revert ${{ env.commit_hash }} --no-edit || true
-        git push || true
-
-        # 2️⃣ Restore Salesforce metadata backup
-        echo "Restoring previous metadata to Salesforce..."
+        git push origin main || true
+        echo "🔄 Restoring previous metadata to org..."
         ./sfdx/bin/sf project deploy start --source-dir backups/previous --target-org hellovibe-dev --ignore-conflicts --wait 10
-        echo "✅ Rollback complete."
+        echo "✅ Rollback completed"
 
-
+    # 🔟 Log summary
     - name: Log Execution Times
       run: |
         echo "=== Pipeline Execution Summary ==="
