@@ -39,12 +39,14 @@ jobs:
         ./sfdx/bin/sfdx auth:sfdxurl:store -f sfdx_auth.txt --set-default --alias hellovibe-dev
         ./sfdx/bin/sfdx org display --target-org hellovibe-dev
 
-    - name: Get Current Commit Hash
-      id: get_commit
-      run: |
-        COMMIT_HASH=$(git rev-parse HEAD)
-        echo "commit_hash=$COMMIT_HASH" >> $GITHUB_ENV
-        echo "Current commit: $COMMIT_HASH"
+        - name: Get Current Commit Hash
+          id: get_commit
+          shell: bash
+          run: |
+            COMMIT_HASH=$(git rev-parse HEAD)
+            echo "commit_hash=$COMMIT_HASH" >> $GITHUB_ENV
+            echo "Current commit: $COMMIT_HASH"
+
 
         - name: Deploy Source to Dev Org
           id: deploy_source

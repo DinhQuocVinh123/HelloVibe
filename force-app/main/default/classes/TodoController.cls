@@ -3,7 +3,7 @@ public with sharing class TodoController {
     public static List<Todo__c> getTodos() {
         try {
             //I simply just add a new comment
-            //I put another comment
+            //I put another commen
             // Simple query for all Todo__c records
             List<Todo__c> records = [SELECT Id, Name, Description__c, Completed__c, CreatedDate, LastModifiedDate, OwnerId FROM Todo__c ORDER BY CreatedDate DESC];
             return records;
