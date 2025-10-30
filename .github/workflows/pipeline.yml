@@ -57,12 +57,12 @@ jobs:
         echo "Source deployed in $duration seconds"
         echo "source_deploy_time=$duration" >> $GITHUB_ENV
 
-    - name: Run Apex Tests with Coverage
-      id: run_tests
-      run: |
-        echo "Running Apex tests with coverage requirement..."
-        startTime=$(date +%s)
-        ./sfdx/bin/sfdx force:apex:test:run --targetusername binkkboi737@agentforce.com --wait 10 --resultformat json > test-result.json
+        - name: Run Apex Tests with Coverage
+          id: run_tests
+          run: |
+            echo "Running Apex tests with coverage requirement..."
+            startTime=$(date +%s)
+            ./sfdx/bin/sf apex run test -o binkkboi737@agentforce.com --wait 10 --result-format json > test-result.json
         
         coverage=$(grep -o '"coveragePercentage":[0-9]*\.[0-9]*' test-result.json | sed 's/"coveragePercentage":"//; s/"//')
         if [ -z "$coverage" ]; then coverage="0"; fi
