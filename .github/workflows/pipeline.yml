@@ -43,12 +43,32 @@ jobs:
 
     # 5️⃣ Backup current metadata (requires manifest/package.xml)
     - name: Backup Current Org Metadata
+      id: backup_metadata
       run: |
         set -e
-        echo "Backing up current metadata before deploy..."
+        echo "🧩 Starting metadata backup..."
         mkdir -p backups/previous
-        ./sfdx/bin/sf project retrieve start --manifest manifest/package.xml --target-org hellovibe-dev --output-dir backups/previous
-        echo "✅ Backup completed successfully."
+        startTime=$(date +%s)
+
+        # ✅ Run backup and catch errors
+        if ./sfdx/bin/sf project retrieve start --manifest manifest/package.xml --target-org hellovibe-dev --output-dir backups/previous; then
+          echo "✅ Backup completed successfully."
+          status="success"
+        else
+          echo "❌ Backup failed during metadata retrieval."
+          status="failed"
+        fi
+
+        endTime=$(date +%s)
+        duration=$((endTime - startTime))
+        echo "⏱️ Backup duration: ${duration} seconds"
+        echo "backup_time=$duration" >> $GITHUB_ENV
+        echo "backup_status=$status" >> $GITHUB_ENV
+
+        # Ghi log ra file để lưu artifact
+        echo "Backup Status: $status" > backups/backup_log.txt
+        echo "Duration: $duration seconds" >> backups/backup_log.txt
+        echo "Completed at: $(date)" >> backups/backup_log.txt
 
     # 6️⃣ Get current commit hash
     - name: Get Current Commit Hash
@@ -109,7 +129,9 @@ jobs:
     # 🔟 Log summary
     - name: Log Execution Times
       run: |
-        echo "=== Pipeline Execution Summary ==="
-        echo "Source Deployment: ${{ env.source_deploy_time }} seconds"
-        echo "Commit Hash: ${{ env.commit_hash }}"
+        echo "=== 🧾 Pipeline Execution Summary ==="
+        echo "📦 Metadata Backup: ${{ env.backup_time }} seconds - Status: ${{ env.backup_status }}"
+        echo "🚀 Source Deployment: ${{ env.source_deploy_time }} seconds"
+        echo "🔁 Commit Hash: ${{ env.commit_hash }}"
+        echo "====================================="
     
