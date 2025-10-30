@@ -112,26 +112,4 @@ jobs:
         echo "=== Pipeline Execution Summary ==="
         echo "Source Deployment: ${{ env.source_deploy_time }} seconds"
         echo "Commit Hash: ${{ env.commit_hash }}"
-    - name: Summarize Metrics and Log Execution Times
-      run: |
-        echo "=== Pipeline Execution Summary ==="
-        echo "Source Deployment: ${{ env.source_deploy_time }} seconds"
-        echo "Test Execution: ${{ env.test_execution_time }} seconds"
-        echo "Commit Hash: ${{ env.commit_hash }}"
-        echo ""
-        echo "=== Vibe Metrics (today) ==="
-        TODAY=$(date +"%Y-%m-%d")
-        LOG="VibeWorkflowLogs/${TODAY}-workflow-log.md"
-        if [ -f "$LOG" ]; then
-          # Extract JSON lines printed by measureStep
-          METRICS=$(grep "__VIBE_METRIC__" "$LOG" | sed 's/__VIBE_METRIC__ //')
-          echo "$METRICS" | node -e 'let lines="";process.stdin.on("data",d=>lines+=d);process.stdin.on("end",()=>{const arr=lines.trim().split(/\r?\n/).filter(Boolean).map(JSON.parse);if(arr.length===0){console.log("No metrics.");return;}const convert=arr.filter(x=>x.step.includes("project:source:convert"));const avg=convert.length?Math.round(convert.reduce((a,b)=>a+b.durationMs,0)/convert.length):0;const errors=convert.filter(x=>x.exitCode!==0).length;console.log(`Convert count: ${convert.length}`);console.log(`Average duration: ${avg} ms`);console.log(`Errors: ${errors}`);});'
-        else
-          echo "No VibeWorkflowLogs found for today."
-        fi
-    - name: Upload VibeWorkflowLogs artifact
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: VibeWorkflowLogs
-        path: VibeWorkflowLogs/
+    
