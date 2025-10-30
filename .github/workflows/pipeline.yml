@@ -32,11 +32,12 @@ jobs:
         npm install -g @salesforce/plugin-source @salesforce/plugin-apex
         ./sfdx/bin/sfdx plugins --core
 
-    - name: Authenticate to Salesforce Dev Org
+    - name: Authenticate to Salesforce Dev Org using SFDX URL
       run: |
-        echo "Authenticating to Dev Org..."
-        ./sfdx/bin/sfdx force:config:set defaultusername=binkkboi737@agentforce.com
-        ./sfdx/bin/sfdx force:org:display --targetusername binkkboi737@agentforce.com
+        echo "Authenticating to Dev Org using SFDX AUTH URL..."
+        echo "${{ secrets.SFDX_AUTH_URL }}" > sfdx_auth.txt
+        ./sfdx/bin/sfdx auth:sfdxurl:store -f sfdx_auth.txt --set-default --alias hellovibe-dev
+        ./sfdx/bin/sfdx org display --target-org hellovibe-dev
 
     - name: Get Current Commit Hash
       id: get_commit
