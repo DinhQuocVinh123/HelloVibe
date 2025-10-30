@@ -65,7 +65,7 @@ jobs:
         set -e
         echo "🚀 Deploying source to Dev Org..."
         startTime=$(date +%s)
-        ./sfdx/bin/sf project deploy start --source-dir force-app --target-org hellovibe-dev --ignore-conflicts --wait 10
+        ./sfdx/bin/sf project deploy start --source-dir force-app --target-org hellovibe-dev --ignore-conflicts --api-version 64.0 --wait 10 --verbose
         endTime=$(date +%s)
         duration=$((endTime - startTime))
         echo "✅ Deployment completed in $duration seconds"
