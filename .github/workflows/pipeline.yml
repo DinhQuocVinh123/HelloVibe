@@ -46,6 +46,13 @@ jobs:
         echo "commit_hash=$COMMIT_HASH" >> $GITHUB_ENV
         echo "Current commit: $COMMIT_HASH"
 
+
+    - name: Backup current metadata before deploy
+      run: |
+        echo "Backing up current metadata..."
+        mkdir -p backups/previous
+        ./sfdx/bin/sf project retrieve start --target-org hellovibe-dev --manifest manifest/package.xml --output-dir backups/previous --wait 10
+
     - name: Deploy Source to Dev Org
       id: deploy_source
       run: |
@@ -90,10 +97,16 @@ jobs:
     - name: Rollback on Deployment Failure
       if: failure()
       run: |
-        echo "Deployment failed, initiating rollback procedure..."
-        echo "In real project, this would revert to the previous commit."
+        echo "❌ Deployment failed. Starting rollback..."
+        # 1️⃣ Revert GitHub code
         git revert ${{ env.commit_hash }} --no-edit || true
         git push || true
+
+        # 2️⃣ Restore Salesforce metadata backup
+        echo "Restoring previous metadata to Salesforce..."
+        ./sfdx/bin/sf project deploy start --source-dir backups/previous --target-org hellovibe-dev --ignore-conflicts --wait 10
+        echo "✅ Rollback complete."
+
 
     - name: Log Execution Times
       run: |
