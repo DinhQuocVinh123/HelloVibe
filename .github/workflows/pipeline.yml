@@ -19,18 +19,18 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ env.NODE_VERSION }}
-        check-latest: true
+        node-version: '20'
 
     - name: Install Salesforce CLI
       run: |
         curl https://developer.salesforce.com/media/salesforce-cli/sfdx/channels/stable/sfdx-linux-x64.tar.xz | tar xJf -
         ./sfdx/bin/sfdx --version
 
-    - name: Install Salesforce CLI Plugins
+    - name: Install Salesforce CLI Plugins (npm method)
       run: |
-        ./sfdx/bin/sfdx plugins:install @salesforce/plugin-source
-        ./sfdx/bin/sfdx plugins:install @salesforce/plugin-apex
+        echo "Installing Salesforce CLI Plugins via npm..."
+        npm install -g @salesforce/plugin-source @salesforce/plugin-apex
+        ./sfdx/bin/sfdx plugins --core
 
     - name: Authenticate to Salesforce Dev Org
       run: |
