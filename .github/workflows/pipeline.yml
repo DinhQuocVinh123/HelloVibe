@@ -97,15 +97,14 @@ jobs:
       run: |
         set -e
         echo "❌ Deployment failed — initiating rollback..."
-        
-        echo "🔄 Reverting GitHub to previous commit..."
+        echo "🔄 Reverting GitHub to previous commit (excluding workflow files)..."
         git reset --hard HEAD~1
+        git restore --staged .github/workflows/pipeline.yml || true
         git push origin main --force
-        
         echo "🔁 Restoring previous metadata to org..."
         ./sfdx/bin/sf project deploy start --source-dir backups/previous --target-org hellovibe-dev --ignore-conflicts --wait 10
-        
         echo "✅ Rollback completed successfully."
+
 
     # 🔟 Log summary
     - name: Log Execution Times
