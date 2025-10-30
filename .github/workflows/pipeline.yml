@@ -46,16 +46,16 @@ jobs:
         echo "commit_hash=$COMMIT_HASH" >> $GITHUB_ENV
         echo "Current commit: $COMMIT_HASH"
 
-    - name: Deploy Source to Dev Org
-      id: deploy_source
-      run: |
-        echo "Deploying source to Dev Org..."
-        startTime=$(date +%s)
-        ./sfdx/bin/sfdx force:source:deploy -p force-app --targetusername binkkboi737@agentforce.com
-        endTime=$(date +%s)
-        duration=$((endTime - startTime))
-        echo "Source deployed in $duration seconds"
-        echo "source_deploy_time=$duration" >> $GITHUB_ENV
+        - name: Deploy Source to Dev Org
+          id: deploy_source
+          run: |
+            echo "Deploying source to Dev Org..."
+            startTime=$(date +%s)
+            ./sfdx/bin/sf project deploy start --source-dir force-app --target-org binkkboi737@agentforce.com --ignore-conflicts --wait 10
+            endTime=$(date +%s)
+            duration=$((endTime - startTime))
+            echo "✅ Source deployed in $duration seconds"
+            echo "source_deploy_time=$duration" >> $GITHUB_ENV
 
         - name: Run Apex Tests with Coverage
           id: run_tests
