@@ -30,7 +30,7 @@ public with sharing class TodoController {
             }
 
             // Return the inserted record
-            Todo__c created = [SELECT Id, Name, Description__c, Completed__c, CreatedDate, LastModifiedDate, OwnerId FROM Todo__c WHERE Id = :sr.getId()]
+            Todo__c created = [SELECT Id, Name, Description__c, Completed__c, CreatedDate, LastModifiedDate, OwnerId FROM Todo__c WHERE Id = :sr.getId()];
             return created;
         } catch (Exception e) {
             throw new AuraHandledException('Failed to create todo: ' + e.getMessage());
