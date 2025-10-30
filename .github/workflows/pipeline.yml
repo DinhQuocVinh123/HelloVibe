@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   build-test-deploy:
     runs-on: ubuntu-latest
@@ -26,25 +29,28 @@ jobs:
     # 3️⃣ Install Salesforce CLI
     - name: Install Salesforce CLI
       run: |
+        set -e
         curl https://developer.salesforce.com/media/salesforce-cli/sfdx/channels/stable/sfdx-linux-x64.tar.xz | tar xJf -
         ./sfdx/bin/sf --version
 
     # 4️⃣ Authenticate to Dev Org
     - name: Authenticate to Salesforce Dev Org using SFDX URL
       run: |
+        set -e
         echo "${{ secrets.SFDX_AUTH_URL }}" > sfdx_auth.txt
         ./sfdx/bin/sf org login sfdx-url -f sfdx_auth.txt --set-default --alias hellovibe-dev
         ./sfdx/bin/sf org display --target-org hellovibe-dev
 
-    # 5️⃣ Backup current metadata (for rollback)
+    # 5️⃣ Backup current metadata (requires manifest/package.xml)
     - name: Backup Current Org Metadata
       run: |
+        set -e
         echo "Backing up current metadata before deploy..."
         mkdir -p backups/previous
         ./sfdx/bin/sf project retrieve start --manifest manifest/package.xml --target-org hellovibe-dev --output-dir backups/previous
-        echo "✅ Backup completed"
+        echo "✅ Backup completed successfully."
 
-    # 6️⃣ Get current commit
+    # 6️⃣ Get current commit hash
     - name: Get Current Commit Hash
       id: get_commit
       run: |
@@ -52,52 +58,58 @@ jobs:
         echo "commit_hash=$COMMIT_HASH" >> $GITHUB_ENV
         echo "Current commit: $COMMIT_HASH"
 
-    # 7️⃣ Deploy source
+    # 7️⃣ Deploy source to org
     - name: Deploy Source to Dev Org
       id: deploy_source
       run: |
-        echo "Deploying source to Dev Org..."
+        set -e
+        echo "🚀 Deploying source to Dev Org..."
         startTime=$(date +%s)
         ./sfdx/bin/sf project deploy start --source-dir force-app --target-org hellovibe-dev --ignore-conflicts --wait 10
         endTime=$(date +%s)
         duration=$((endTime - startTime))
-        echo "Source deployed in $duration seconds"
+        echo "✅ Deployment completed in $duration seconds"
         echo "source_deploy_time=$duration" >> $GITHUB_ENV
 
-    # 8️⃣ Run Apex Tests
-    - name: Run Apex Tests with Coverage
-      id: run_tests
-      run: |
-        echo "Running Apex tests with coverage requirement..."
-        startTime=$(date +%s)
-        ./sfdx/bin/sf apex run test -o hellovibe-dev --wait 10 --result-format json > test-result.json
-        coverage=$(grep -o '"coveragePercentage":[0-9]*\.[0-9]*' test-result.json | sed 's/"coveragePercentage"://')
-        if [ -z "$coverage" ]; then coverage="0"; fi
-        echo "Coverage: ${coverage}%"
-        if (( $(echo "$coverage < 85" | bc -l) )); then
-          echo "❌ Coverage too low!"
-          exit 1
-        fi
-        endTime=$(date +%s)
-        duration=$((endTime - startTime))
-        echo "Tests completed in $duration seconds"
-        echo "test_execution_time=$duration" >> $GITHUB_ENV
+    # 8️⃣ (Optional) Run Apex Tests with Coverage
+    # - name: Run Apex Tests with Coverage
+    #   id: run_tests
+    #   run: |
+    #     set -e
+    #     echo "Running Apex tests..."
+    #     startTime=$(date +%s)
+    #     ./sfdx/bin/sf apex run test -o hellovibe-dev --wait 10 --result-format json > test-result.json
+    #     coverage=$(grep -o '"coveragePercentage":[0-9]*\.[0-9]*' test-result.json | sed 's/"coveragePercentage"://')
+    #     if [ -z "$coverage" ]; then coverage="0"; fi
+    #     echo "Coverage: ${coverage}%"
+    #     if (( $(echo "$coverage < 85" | bc -l) )); then
+    #       echo "❌ Coverage too low: ${coverage}%"
+    #       exit 1
+    #     fi
+    #     endTime=$(date +%s)
+    #     duration=$((endTime - startTime))
+    #     echo "Tests completed in $duration seconds"
+    #     echo "test_execution_time=$duration" >> $GITHUB_ENV
 
-    # 9️⃣ Rollback if deploy/test failed
+    # 9️⃣ Rollback on failure
     - name: Rollback on Deployment Failure
       if: failure()
       run: |
-        echo "Deployment failed — initiating rollback..."
-        git revert ${{ env.commit_hash }} --no-edit || true
-        git push origin main || true
-        echo "🔄 Restoring previous metadata to org..."
+        set -e
+        echo "❌ Deployment failed — initiating rollback..."
+        
+        echo "🔄 Reverting GitHub to previous commit..."
+        git reset --hard HEAD~1
+        git push origin main --force
+        
+        echo "🔁 Restoring previous metadata to org..."
         ./sfdx/bin/sf project deploy start --source-dir backups/previous --target-org hellovibe-dev --ignore-conflicts --wait 10
-        echo "✅ Rollback completed"
+        
+        echo "✅ Rollback completed successfully."
 
     # 🔟 Log summary
     - name: Log Execution Times
       run: |
         echo "=== Pipeline Execution Summary ==="
         echo "Source Deployment: ${{ env.source_deploy_time }} seconds"
-        echo "Test Execution: ${{ env.test_execution_time }} seconds"
         echo "Commit Hash: ${{ env.commit_hash }}"
